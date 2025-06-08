@@ -63,10 +63,6 @@ if coincidencias:
         for persona in asistentes_a_guardar:
             hoja_asistencias.append_row([*persona, "Asistió", now])
         st.success("✅ Asistencias guardadas correctamente.")
-       if "actualizar" in st.session_state:
-    # volver a leer los datos desde la hoja
-    df = pd.DataFrame(worksheet.get_all_records())
-    st.session_state.pop("actualizar")  # Eliminamos el flag para la próxima vez
 
 else:
     st.info("No hay registros para esta lista.")

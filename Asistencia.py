@@ -15,14 +15,14 @@ gc = gspread.authorize(credentials)
 sh = gc.open("bdcarmina")
 worksheet = sh.worksheet("BD")
 
-# Verificamos si existe la hoja de asistencia
+# Obtener o crear hoja de asistencias
 try:
     hoja_asistencias = sh.worksheet("Asistencias")
 except gspread.exceptions.WorksheetNotFound:
     hoja_asistencias = sh.add_worksheet(title="Asistencias", rows="1000", cols="10")
     hoja_asistencias.append_row(["Nombre", "DNI", "Fecha Nacimiento", "Lista", "Estado", "Timestamp"])
 
-# Seleccionar lista
+# Selección de lista
 opciones = [
     "Lista Free",
     "Cumpleaños DANIEL MENDOZA - VIERNES 1 JUN",
@@ -30,13 +30,16 @@ opciones = [
 ]
 lista_seleccionada = st.selectbox("Seleccioná una Lista para marcar asistencia:", opciones)
 
-# Leer datos
+# Obtener registros
 registros = worksheet.get_all_values()[1:]  # Omitimos encabezado
 coincidencias = [fila for fila in registros if fila[3] == lista_seleccionada]
 
-# Obtener DNIs que ya registraron asistencia
-reg_asistencias = hoja_asistencias.get_all_values()[1:]  # Saltamos encabezado
-asistieron_dnis = [fila[1] for fila in reg_asistencias if fila[3] == lista_seleccionada]
+# Obtener asistencias previas
+asistencias_previas = hoja_asistencias.get_all_values()[1:]  # Omitimos encabezado
+asistieron_dnis = {
+    fila[1] for fila in asistencias_previas
+    if fila[3] == lista_seleccionada and fila[4].lower() == "asistió"
+}
 
 asistentes_a_guardar = []
 
@@ -47,17 +50,19 @@ if coincidencias:
         nombre, dni = fila[0], fila[1]
         nombre_dni = f"{nombre} - DNI {dni}"
 
-        # Ya asistió → Mostrar en rojo (sin checkbox)
         if dni in asistieron_dnis:
-            st.markdown(f"<span style='color:red'>{nombre_dni} (ya registrado)</span>", unsafe_allow_html=True)
+            # Mostrar en rojo si ya asistió
+            st.markdown(f"<p style='color:red'>{nombre_dni} (asistencia registrada)</p>", unsafe_allow_html=True)
         else:
-            if st.checkbox(nombre_dni, key=f"asistencia_{i}"):
+            # Mostrar checkbox si aún no asistió
+            if st.checkbox(nombre_dni, key=f"check_{i}"):
                 asistentes_a_guardar.append(fila)
 
-    if st.button("Guardar Asistencias"):
+    if asistentes_a_guardar and st.button("Guardar Asistencias"):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for persona in asistentes_a_guardar:
-            hoja_asistencias.append_row([*persona, "Asistió", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+            hoja_asistencias.append_row([*persona, "Asistió", now])
         st.success("✅ Asistencias guardadas correctamente.")
-        st.experimental_rerun()  # Vuelve a cargar la página para aplicar colores
+        st.experimental_rerun()  # Refresca la página para actualizar el color rojo
 else:
-    st.info("No hay registros en esta lista.")
+    st.info("No hay registros para esta lista.")
